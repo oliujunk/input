@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -51,7 +51,8 @@ type Entity struct {
 }
 
 type CurrentData struct {
-	Datatime string `json:"dataTime"`
+	FacId    int    `json:"facId" bson:"facId"`
+	Datatime string `json:"dataTime" bson:"dataTime"`
 	E1       int    `json:"e1"`
 	E2       int    `json:"e2"`
 	E3       int    `json:"e3"`
@@ -105,7 +106,7 @@ type CurrentData struct {
 // GetToken 获取token
 func GetToken(username string, password string) string {
 	// 超时时间：5秒
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: 15 * time.Second}
 	loginParam := map[string]string{"username": username, "password": password}
 	jsonStr, _ := json.Marshal(loginParam)
 	resp, err := client.Post("http://101.34.116.221:8005/login", "application/json", bytes.NewBuffer(jsonStr))
@@ -114,7 +115,7 @@ func GetToken(username string, password string) string {
 	}
 	defer resp.Body.Close()
 
-	result, _ := ioutil.ReadAll(resp.Body)
+	result, _ := io.ReadAll(resp.Body)
 	var token Token
 	_ = json.Unmarshal(result, &token)
 	return token.Token
@@ -122,7 +123,7 @@ func GetToken(username string, password string) string {
 
 func GetToken115(username string, password string) string {
 	// 超时时间：5秒
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: 15 * time.Second}
 	loginParam := map[string]string{"username": username, "password": password}
 	jsonStr, _ := json.Marshal(loginParam)
 	resp, err := client.Post("http://115.28.187.9:8005/login", "application/json", bytes.NewBuffer(jsonStr))
@@ -131,7 +132,24 @@ func GetToken115(username string, password string) string {
 	}
 	defer resp.Body.Close()
 
-	result, _ := ioutil.ReadAll(resp.Body)
+	result, _ := io.ReadAll(resp.Body)
+	var token Token
+	_ = json.Unmarshal(result, &token)
+	return token.Token
+}
+
+func GetToken47(username string, password string) string {
+	// 超时时间：5秒
+	client := &http.Client{Timeout: 15 * time.Second}
+	loginParam := map[string]string{"username": username, "password": password}
+	jsonStr, _ := json.Marshal(loginParam)
+	resp, err := client.Post("http://47.105.215.208:8005/login", "application/json", bytes.NewBuffer(jsonStr))
+	if err != nil {
+		log.Printf(err.Error())
+	}
+	defer resp.Body.Close()
+
+	result, _ := io.ReadAll(resp.Body)
 	var token Token
 	_ = json.Unmarshal(result, &token)
 	return token.Token
@@ -139,7 +157,7 @@ func GetToken115(username string, password string) string {
 
 // GetDevices 获取设备ID
 func GetDevices(username, token string) []Device {
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("GET", "http://101.34.116.221:8005/user/"+username, nil)
 	if err != nil {
 		return nil
@@ -150,14 +168,14 @@ func GetDevices(username, token string) []Device {
 		return nil
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 	var user User
 	_ = json.Unmarshal(body, &user)
 	return user.Devices
 }
 
 func GetDevices115(username, token string) []Device {
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("GET", "http://115.28.187.9:8005/user/"+username, nil)
 	if err != nil {
 		return nil
@@ -168,34 +186,59 @@ func GetDevices115(username, token string) []Device {
 		return nil
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
+	var user User
+	_ = json.Unmarshal(body, &user)
+	return user.Devices
+}
+
+func GetDevices47(username, token string) []Device {
+	client := &http.Client{Timeout: 15 * time.Second}
+	req, err := http.NewRequest("GET", "http://47.105.215.208:8005/user/"+username, nil)
+	if err != nil {
+		return nil
+	}
+	req.Header.Set("token", token)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+
+		}
+	}(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 	var user User
 	_ = json.Unmarshal(body, &user)
 	return user.Devices
 }
 
 func PostData(data map[string]int) string {
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: 15 * time.Second}
 	jsonStr, _ := json.Marshal(data)
 	resp, err := client.Post(fmt.Sprintf("http://101.34.116.221:8005/data/%d", data["facId"]), "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		log.Println(err)
+		return err.Error()
 	}
 
-	result, _ := ioutil.ReadAll(resp.Body)
+	result, _ := io.ReadAll(resp.Body)
 
 	return string(result)
 }
 
 func PostData115(data map[string]int) string {
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: 15 * time.Second}
 	jsonStr, _ := json.Marshal(data)
 	resp, err := client.Post(fmt.Sprintf("http://115.28.187.9:8005/data/%d", data["facId"]), "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		log.Println(err)
+		return err.Error()
 	}
 
-	result, _ := ioutil.ReadAll(resp.Body)
+	result, _ := io.ReadAll(resp.Body)
 
 	return string(result)
 }

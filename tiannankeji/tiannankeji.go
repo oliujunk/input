@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"github.com/bitly/go-simplejson"
 	"github.com/robfig/cron/v3"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -19,15 +19,16 @@ var (
 		"K09576966", "K09576970",
 		"K09577010", "K09576956",
 		"K55779945", "K68778231",
-		"K68778241",
+		"K68778241", "L06977393",
 	}
+	//imeis = [...]string{"K55779945"}
 	uids = [...]string{"31FFD9055642343035621343", "31FFD2054848313023811743",
 		"19004300190000384753524E", "490036000F0000384753524E",
 		"480036000F0000384753524E", "470040000F0000384753524E",
 		"510029000F0000384753524E", "09001900140000384753524E",
 		"29000900130000384753524E", "470043000F0000384753524E",
 		"3E005F001238314D33504E53", "26005D001238314D33504E53",
-		"2A005E001238314D33504E53",
+		"2A005E001238314D33504E53", "41002400130000384753524E",
 	}
 	usernames = [...]string{"田南科技"}
 	passwords = [...]string{"888888"}
@@ -78,13 +79,14 @@ func Start() {
 		cron.WithChain(cron.SkipIfStillRunning(cron.DefaultLogger)))
 
 	_, _ = job.AddFunc("0 0 */1 * * *", getData)
-	//_, _ = job.AddFunc("0 */2 * * * *", getData)
+	//_, _ = job.AddFunc("0 */5 * * * *", getData)
 	_, _ = job.AddFunc("00 50 23 * * *", getPicture)
-	//_, _ = job.AddFunc("0 */2 * * * *", getPicture)
+	//_, _ = job.AddFunc("0 8 * * * *", getPicture)
 	job.Start()
 }
 
 func getData() {
+	var backResult []byte
 	for index, imei := range imeis {
 		params := url.Values{}
 		Url, _ := url.Parse("http://open.cdbeyond.com/open/Ycc2GetCurrData")
@@ -97,10 +99,15 @@ func getData() {
 		if err != nil {
 			log.Panicln(err)
 		}
-		result, _ := ioutil.ReadAll(resp.Body)
+
+		result, _ := io.ReadAll(resp.Body)
+		if imei == "K09577011" {
+			backResult = result
+		}
 		log.Println(string(result))
 		buf := bytes.NewBuffer(result)
 		message, err := simplejson.NewFromReader(buf)
+
 		if err != nil {
 			log.Panicln(err)
 		}
@@ -109,14 +116,21 @@ func getData() {
 		stamp := message.Get("data").Get("time").MustInt64()
 		dataTime := time.Unix(stamp/1000, 0)
 		pestData.DataTime = dataTime.Format("2006-01-02 15:04:05")
+
 		pestData.E1 = int(message.Get("data").Get("humidity").MustFloat64() * 10)
 		pestData.E2 = int(message.Get("data").Get("temp").MustFloat64() * 10)
+		if imei == "K09576970" {
+			backbuf := bytes.NewBuffer(backResult)
+			backmessage, _ := simplejson.NewFromReader(backbuf)
+			pestData.E1 = int(backmessage.Get("data").Get("humidity").MustFloat64() * 10)
+			pestData.E2 = int(backmessage.Get("data").Get("temp").MustFloat64() * 10)
+		}
 		pestData.E3 = message.Get("data").Get("lux").MustInt()
 		pestData.E4 = int(message.Get("data").Get("lat").MustFloat64() * 10000)
 		pestData.E5 = int(message.Get("data").Get("lng").MustFloat64() * 10000)
 		pestData.E6 = message.Get("data").Get("num").MustInt()
 
-		client := &http.Client{Timeout: 5 * time.Second}
+		client := &http.Client{Timeout: 15 * time.Second}
 		jsonStr, _ := json.Marshal(pestData)
 		log.Println(string(jsonStr))
 		resp, err = client.Post("http://101.34.116.221:8005/pest/data", "application/json", bytes.NewBuffer(jsonStr))
@@ -124,7 +138,7 @@ func getData() {
 			log.Panicln(err)
 		}
 
-		result, _ = ioutil.ReadAll(resp.Body)
+		result, _ = io.ReadAll(resp.Body)
 		log.Println(string(result))
 
 		time.Sleep(5 * time.Second)
@@ -144,7 +158,7 @@ func getPicture() {
 		if err != nil {
 			log.Panicln(err)
 		}
-		result, _ := ioutil.ReadAll(resp.Body)
+		result, _ := io.ReadAll(resp.Body)
 		log.Println(string(result))
 		buf := bytes.NewBuffer(result)
 		message, err := simplejson.NewFromReader(buf)
@@ -168,10 +182,10 @@ func getPicture() {
 			if err != nil {
 				log.Panicln(err)
 			}
-			result, _ := ioutil.ReadAll(resp.Body)
+			result, _ := io.ReadAll(resp.Body)
 			log.Println(string(result))
-			time.Sleep(10 * time.Second)
+			time.Sleep(5 * time.Second)
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 }

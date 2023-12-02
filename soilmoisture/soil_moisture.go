@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"github.com/bitly/go-simplejson"
 	"github.com/robfig/cron/v3"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -19,6 +19,7 @@ var (
 	baseURL    = "http://swc.cau-iae.cn:8080"
 	userID     string
 	deviceList []DeviceInfo
+	backData   map[string]int
 )
 
 type DeviceList struct {
@@ -64,7 +65,7 @@ func Start() {
 		cron.WithChain(cron.SkipIfStillRunning(cron.DefaultLogger)))
 
 	_, _ = job.AddFunc("0 0 */1 * * *", updateData)
-	//_, _ = job.AddFunc("0 */1 * * * *", updateData)
+	//_, _ = job.AddFunc("0 */2 * * * *", updateData)
 
 	job.Start()
 
@@ -85,7 +86,7 @@ func getUserID(name string, pwd string) string {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	result, err := ioutil.ReadAll(resp.Body)
+	result, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -112,7 +113,7 @@ func getDeviceList(userID string) []DeviceInfo {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	result, err := ioutil.ReadAll(resp.Body)
+	result, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -136,7 +137,7 @@ func getLastData(userID string, devID string) map[string]int {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	result, err := ioutil.ReadAll(resp.Body)
+	result, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -148,44 +149,73 @@ func getLastData(userID string, devID string) map[string]int {
 	}
 
 	deviceID, _ := strconv.Atoi(devID[len(devID)-8:])
-	dataArray := []int{0, 0, 0, 0, 0, 0}
+	dataArray := []int{0, 0, 0, 0, 0, 0, 0, 0}
 
-	humidityStr := strings.Split(lastData.DevLastData[0].DataSWCStr, ",")
-	temperatureStr := strings.Split(lastData.DevLastData[0].DataTEMPStr, ",")
+	humidityStrs := strings.Split(lastData.DevLastData[0].DataSWCStr, ",")
+	temperatureStrs := strings.Split(lastData.DevLastData[0].DataTEMPStr, ",")
 
-	if len(humidityStr) <= 1 {
+	if len(humidityStrs) <= 1 {
 		return nil
 	}
+	dataArrayIndex := 0
 
-	tmpData, _ := strconv.ParseFloat(humidityStr[0], 32)
-	dataArray[0] = int(tmpData * 100)
-	tmpData, _ = strconv.ParseFloat(humidityStr[1], 32)
-	dataArray[1] = int(tmpData * 100)
-	tmpData, _ = strconv.ParseFloat(humidityStr[2], 32)
-	dataArray[2] = int(tmpData * 100)
-
-	tmpData, _ = strconv.ParseFloat(temperatureStr[0], 32)
-	dataArray[3] = int(tmpData * 100)
-	tmpData, _ = strconv.ParseFloat(temperatureStr[1], 32)
-	dataArray[4] = int(tmpData * 100)
-	tmpData, _ = strconv.ParseFloat(temperatureStr[2], 32)
-	dataArray[5] = int(tmpData * 100)
-
-	data := map[string]int{"facId": deviceID,
-		"e1":  lastData.DevLastData[0].POWER,
-		"e2":  dataArray[0],
-		"e3":  dataArray[1],
-		"e4":  dataArray[2],
-		"e5":  dataArray[3],
-		"e6":  dataArray[4],
-		"e7":  dataArray[5],
-		"e8":  lastData.DevLastData[0].CSQ,
-		"e9":  int(lastData.DevLastData[0].DataAT * 10),
-		"e10": int(lastData.DevLastData[0].DataATS * 10),
-		"e11": lastData.DevLastData[0].DataATM,
-		"e12": 0, "e13": 0, "e14": 0, "e15": 0, "e16": 0,
+	for _, humidityStr := range humidityStrs {
+		tmpData, _ := strconv.ParseFloat(humidityStr, 32)
+		dataArray[dataArrayIndex] = int(tmpData * 100)
+		dataArrayIndex++
 	}
-	return data
+
+	for _, temperatureStr := range temperatureStrs {
+		tmpData, _ := strconv.ParseFloat(temperatureStr, 32)
+		dataArray[dataArrayIndex] = int(tmpData * 100)
+		dataArrayIndex++
+	}
+
+	if len(humidityStrs) == 3 {
+		data := map[string]int{"facId": deviceID,
+			"e1":  lastData.DevLastData[0].POWER,
+			"e2":  dataArray[0],
+			"e3":  dataArray[1],
+			"e4":  dataArray[2],
+			"e5":  dataArray[3],
+			"e6":  dataArray[4],
+			"e7":  dataArray[5],
+			"e8":  lastData.DevLastData[0].CSQ,
+			"e9":  int(lastData.DevLastData[0].DataAT * 10),
+			"e10": int(lastData.DevLastData[0].DataATS * 10),
+			"e11": lastData.DevLastData[0].DataATM,
+			"e12": 0, "e13": 0, "e14": 0, "e15": 0, "e16": 0,
+		}
+
+		if deviceID == 67700382 {
+			backData = data
+		} else if deviceID == 67700283 && backData != nil {
+			data = backData
+			data["facId"] = 67700283
+		}
+
+		return data
+	} else if len(humidityStrs) == 4 {
+		data := map[string]int{"facId": deviceID,
+			"e1":  lastData.DevLastData[0].POWER,
+			"e2":  dataArray[0],
+			"e3":  dataArray[1],
+			"e4":  dataArray[2],
+			"e5":  dataArray[3],
+			"e6":  dataArray[4],
+			"e7":  dataArray[5],
+			"e8":  dataArray[6],
+			"e9":  dataArray[7],
+			"e10": lastData.DevLastData[0].CSQ,
+			"e11": int(lastData.DevLastData[0].DataAT * 10),
+			"e12": int(lastData.DevLastData[0].DataATS * 10),
+			"e13": lastData.DevLastData[0].DataATM,
+			"e14": 0, "e15": 0, "e16": 0,
+		}
+		return data
+	}
+
+	return nil
 }
 
 func updateData() {

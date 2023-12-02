@@ -2,10 +2,7 @@ package main
 
 import (
 	"log"
-	"oliujunk/input/soilmoisture"
-	"oliujunk/input/tiannankeji"
-	"oliujunk/input/tulian"
-	"oliujunk/input/xph_527122894"
+	"oliujunk/input/rn_2184568_history"
 )
 
 func init() {
@@ -15,13 +12,19 @@ func init() {
 
 func main() {
 
-	go soilmoisture.Start()
+	//go soilmoisture.Start()
+	//
+	//go tulian.Start()
+	//
+	//go tiannankeji.Start()
+	//
+	//go rn_2184568.Start()
+	//
+	//go xph_527046329.Start()
+	//
+	//go xph_527122894.Start()
 
-	go tiannankeji.Start()
-
-	go tulian.Start()
-
-	go xph_527122894.Start()
+	go rn_2184568_history.Start()
 
 	select {}
 }

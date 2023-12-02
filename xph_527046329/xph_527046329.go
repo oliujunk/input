@@ -1,4 +1,4 @@
-package tulian
+package xph_527046329
 
 import (
 	"encoding/json"
@@ -12,27 +12,32 @@ import (
 )
 
 var (
-	token     string
-	deviceIDs = [...]int{
-		16081799, 16081798, 16081797,
-	}
+	token   string
+	devices []api.Device
 )
 
 func updateToken() {
-	token = api.GetToken115("test", "123456")
+	token = api.GetToken47("527046329", "123456")
+}
+
+func updateDevices() {
+	devices = api.GetDevices47("527046329", token)
 }
 
 func Start() {
-	log.Println("图联数据转发")
+	log.Println("XPH数据转发")
 
 	updateToken()
+
+	updateDevices()
 
 	job := cron.New(
 		cron.WithSeconds(),
 		cron.WithChain(cron.SkipIfStillRunning(cron.DefaultLogger)))
 
 	_, _ = job.AddFunc("0 0 0/12 * * *", updateToken)
-	_, _ = job.AddFunc("0 */5 * * * *", updateData)
+	_, _ = job.AddFunc("30 0 0 */1 * *", updateDevices)
+	_, _ = job.AddFunc("0 */30 * * * *", updateData)
 	//_, _ = job.AddFunc("0 */1 * * * *", updateData)
 
 	job.Start()
@@ -41,13 +46,13 @@ func Start() {
 
 func updateData() {
 
-	for _, deviceID := range deviceIDs {
-		log.Println(deviceID)
-		data := getLastData(deviceID)
+	for _, device := range devices {
+		log.Println(device.DeviceID)
+		data := getLastData(device.DeviceID)
 		if data == nil {
 			continue
 		}
-		result := api.PostData115(data)
+		result := api.PostData(data)
 		log.Println(result)
 
 		time.Sleep(1 * time.Second)
@@ -56,7 +61,7 @@ func updateData() {
 
 func getLastData(deviceID int) map[string]int {
 	client := &http.Client{Timeout: 15 * time.Second}
-	req, err := http.NewRequest("GET", "http://101.34.116.221:8005/data/"+strconv.Itoa(deviceID), nil)
+	req, err := http.NewRequest("GET", "http://47.105.215.208:8005/data/"+strconv.Itoa(deviceID), nil)
 	if err != nil {
 		log.Println(err)
 		return nil
@@ -74,7 +79,7 @@ func getLastData(deviceID int) map[string]int {
 	if currentData.Datatime != "" {
 		now := time.Now()
 		datatime, _ := time.Parse("2006-01-02 15:04:05", currentData.Datatime)
-		if datatime.After(now.Add(-time.Minute * 6)) {
+		if datatime.After(now.Add(-time.Minute * 60)) {
 			data := map[string]int{"facId": deviceID,
 				"e1":  currentData.E1,
 				"e2":  currentData.E2,

@@ -3,7 +3,7 @@ package xph_527122894
 import (
 	"encoding/json"
 	"github.com/robfig/cron/v3"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"oliujunk/input/api"
@@ -60,7 +60,7 @@ func updateData() {
 }
 
 func getLastData(deviceID int) map[string]int {
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("GET", "http://115.28.187.9:8005/data/"+strconv.Itoa(deviceID), nil)
 	if err != nil {
 		log.Println(err)
@@ -72,7 +72,7 @@ func getLastData(deviceID int) map[string]int {
 		log.Println(err)
 		return nil
 	}
-	result, _ := ioutil.ReadAll(resp.Body)
+	result, _ := io.ReadAll(resp.Body)
 	var currentData api.CurrentData
 	_ = json.Unmarshal(result, &currentData)
 
